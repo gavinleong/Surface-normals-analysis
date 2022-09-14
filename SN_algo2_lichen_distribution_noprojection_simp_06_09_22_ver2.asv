@@ -26,13 +26,13 @@ tic()
 ptCloud = (pcread('model_dense_mesh_for_paper_scaled_cleaned_poissondsksamp_79256_0,2_0,002228.ply')); % import the point cloud 
 
 rock_folder = char('rock_22_09_06_x1_ver8\');
-lichen_folder = char('lichen_22_09_06_x1_ver8\');
+lichen_folder = char('lichen_22_09_06_x1_ver10\');
 
 mkdir(fullfile('C:\Users\gavin\OneDrive - University College London\Surface normals paper\All_figures_13.5.21\from_matlab\', rock_folder));
 mkdir(fullfile('C:\Users\gavin\OneDrive - University College London\Surface normals paper\All_figures_13.5.21\from_matlab\', lichen_folder));
 
 mkdir("lichen_ply");
-lichen_write = 'lichen_ply\ADPC_for_depthmap_ver8.ply';
+lichen_write = 'lichen_ply\ADPC_for_depthmap_ver10.ply';
 
 disp("1. importing raw cloud:")
 toc()
@@ -169,24 +169,24 @@ else
     y_lichen = double(y - (v.*lichen_sample*2));
     z_lichen = double(z - (w.*lichen_sample*2));
 
-    % denoising the lichen point cloud to improve visualisation, this will
-    % reduce the number of lichen points in the final visualisation but may
-    % improve the ability to outine carvings
-    xyz_lichen_ptcld = pointCloud([x_lichen y_lichen z_lichen]);
-    [ptCloudOut,inlierIndices,outlierIndices] = pcdenoise(xyz_lichen_ptcld, NumNeighbors=4, Threshold = 0.3);
-    points_lichen = [x_lichen(inlierIndices) y_lichen(inlierIndices) z_lichen(inlierIndices)]; 
-    
-    % redefining the x, y and z_lichen to be the denoised points
-    x_lichen = points_lichen(:,1);
-    y_lichen = points_lichen(:,2);
-    z_lichen = points_lichen(:,3);
-
+    % store lichen points by writing to a file
     pcwrite(pointCloud([x_lichen,y_lichen,z_lichen]),lichen_write)
-    
-    % store lichen points in single array
-    
+
 end
 
+% denoising the lichen point cloud to improve visualisation, this will
+% reduce the number of lichen points in the final visualisation but may
+% improve the ability to outine carvings
+%xyz_lichen_ptcld = pointCloud([x_lichen y_lichen z_lichen]);
+%[ptCloudOut,inlierIndices,outlierIndices] = pcdenoise(xyz_lichen_ptcld, NumNeighbors=4, Threshold = 0.5);
+points_lichen = [x_lichen y_lichen z_lichen]; 
+%points_lichen = [x_lichen(inlierIndices) y_lichen(inlierIndices) z_lichen(inlierIndices)]; 
+
+% redefining the x, y and z_lichen to be the denoised points
+x_lichen = points_lichen(:,1);
+y_lichen = points_lichen(:,2);
+z_lichen = points_lichen(:,3);
+    
 % plot the rock and lichen clouds
 set(0,'DefaultFigureVisible','on');
 
@@ -195,9 +195,10 @@ figure(5000)
 %hold on
 plot3(points_rock_orient(:,1).*100,points_rock_orient(:,2).*100, points_rock_orient(:,3).*100,'k.', 'MarkerSize', 8);
 hold on
-quiver3(x_lichen.*100,y_lichen.*100,z_lichen.*100,u_lichen,v_lichen,w_lichen,0.5,'g');
-axis equal
+plot3(x_lichen.*100,y_lichen.*100,z_lichen.*100,'g.','MarkerSize', 8);
+hold on
 
+axis equal
 
 % convert the lichen xyz points into a point cloud
 xyz_lichen_ptcld = pointCloud(points_lichen);
@@ -230,6 +231,8 @@ normals_lichen = [u_lichen v_lichen w_lichen];
 
 disp("3. lichen layer creation:")
 
+quiver3(x_lichen.*100,y_lichen.*100,z_lichen.*100,u_lichen,v_lichen,w_lichen,20,'b');
+
 toc()
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -250,9 +253,9 @@ tic()
 
 %nn_var = 4;
 tic()
-indices_counter = zeros(length(inlierIndices),1);
+indices_counter = zeros(length(x),1);
 for nearest_neighbour = nn_var % try changing it around for a better distribution
-    [angle_diff_lichen, indices_counter] = Algo2only_func_fixed_xy(nearest_neighbour, points_rock, normals_rock, points_lichen(inlierIndices,:), normals_lichen(inlierIndices,:), indices_counter);
+    [angle_diff_lichen, indices_counter] = Algo2only_func_fixed_xy(nearest_neighbour, points_rock, normals_rock, points_lichen, normals_lichen, indices_counter);
     for i = 1:50
         points_plot_rock4plotalgo2AD = angle_diff_lichen > i;
         plot_algo2_AD_noaxis(points_plot_rock4plotalgo2AD,points_rock);

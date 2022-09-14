@@ -26,13 +26,13 @@ tic()
 ptCloud = (pcread('model_dense_mesh_for_paper_scaled_cleaned_poissondsksamp_79256_0,2_0,002228.ply')); % import the point cloud 
 
 rock_folder = char('rock_22_09_06_x1_ver8\');
-lichen_folder = char('lichen_22_09_06_x1_ver8\');
+lichen_folder = char('lichen_22_09_06_x1_ver14\');
 
 mkdir(fullfile('C:\Users\gavin\OneDrive - University College London\Surface normals paper\All_figures_13.5.21\from_matlab\', rock_folder));
 mkdir(fullfile('C:\Users\gavin\OneDrive - University College London\Surface normals paper\All_figures_13.5.21\from_matlab\', lichen_folder));
 
 mkdir("lichen_ply");
-lichen_write = 'lichen_ply\ADPC_for_depthmap_ver8.ply';
+lichen_write = 'lichen_ply\ADPC_for_depthmap_ver10.ply';
 
 disp("1. importing raw cloud:")
 toc()
@@ -90,9 +90,9 @@ sensorCenter = [0,0,0];
 for k = 1 : numel(x)
    p1 = sensorCenter - [x(k),y(k),z(k)];
    p2 = [u(k),v(k),w(k)];
-   % Flip the normal vector if it is pointing towards the sensor.
-   angle = atan2(norm(cross(p1,p2)),p1*p2');
-   if angle < pi/2 && angle > -pi/2
+   % Flip the normal vector if it is pointing away from the sensor.
+   angle = atan2d(norm(cross(p1,p2)),p1*p2');
+   if angle > 90.0
        u(k) = -u(k);
        v(k) = -v(k);
        w(k) = -w(k);
@@ -169,24 +169,24 @@ else
     y_lichen = double(y - (v.*lichen_sample*2));
     z_lichen = double(z - (w.*lichen_sample*2));
 
-    % denoising the lichen point cloud to improve visualisation, this will
-    % reduce the number of lichen points in the final visualisation but may
-    % improve the ability to outine carvings
-    xyz_lichen_ptcld = pointCloud([x_lichen y_lichen z_lichen]);
-    [ptCloudOut,inlierIndices,outlierIndices] = pcdenoise(xyz_lichen_ptcld, NumNeighbors=4, Threshold = 0.3);
-    points_lichen = [x_lichen(inlierIndices) y_lichen(inlierIndices) z_lichen(inlierIndices)]; 
-    
-    % redefining the x, y and z_lichen to be the denoised points
-    x_lichen = points_lichen(:,1);
-    y_lichen = points_lichen(:,2);
-    z_lichen = points_lichen(:,3);
-
+    % store lichen points by writing to a file
     pcwrite(pointCloud([x_lichen,y_lichen,z_lichen]),lichen_write)
-    
-    % store lichen points in single array
-    
+
 end
 
+% denoising the lichen point cloud to improve visualisation, this will
+% reduce the number of lichen points in the final visualisation but may
+% improve the ability to outine carvings
+%xyz_lichen_ptcld = pointCloud([x_lichen y_lichen z_lichen]);
+%[ptCloudOut,inlierIndices,outlierIndices] = pcdenoise(xyz_lichen_ptcld, NumNeighbors=4, Threshold = 0.5);
+points_lichen = [x_lichen y_lichen z_lichen]; 
+%points_lichen = [x_lichen(inlierIndices) y_lichen(inlierIndices) z_lichen(inlierIndices)]; 
+
+% redefining the x, y and z_lichen to be the denoised points
+x_lichen = points_lichen(:,1);
+y_lichen = points_lichen(:,2);
+z_lichen = points_lichen(:,3);
+    
 % plot the rock and lichen clouds
 set(0,'DefaultFigureVisible','on');
 
@@ -196,15 +196,16 @@ figure(5000)
 plot3(points_rock_orient(:,1).*100,points_rock_orient(:,2).*100, points_rock_orient(:,3).*100,'k.', 'MarkerSize', 8);
 hold on
 plot3(x_lichen.*100,y_lichen.*100,z_lichen.*100,'g.','MarkerSize', 8);
-axis equal
+hold on
 
+axis equal
 
 % convert the lichen xyz points into a point cloud
 xyz_lichen_ptcld = pointCloud(points_lichen);
-% work out the normals of the point cloud, 6 nearest neighbours
+% work out the normals of the point cloud, 20 nearest neighbours
 % this is done before any projection is applied. So the neighbours are
 % obtained from 3D space
-normals_lichen = pcnormals(xyz_lichen_ptcld, 6);
+normals_lichen = pcnormals(xyz_lichen_ptcld, 20);
 
 % separate the normals into xyz vector directions to reorient them
 u_lichen = normals_lichen(1:1:end,1);
@@ -217,9 +218,10 @@ sensorCenter = [0,0,0];
 for k = 1 : numel(x_lichen)
    p1 = sensorCenter - [x_lichen(k),y_lichen(k),z_lichen(k)];
    p2 = [u_lichen(k),v_lichen(k),w_lichen(k)];
-   % Flip the normal vector if it is pointing towards the sensor.
-   angle = atan2(norm(cross(p1,p2)),p1*p2');
-   if angle < pi/2 && angle > -pi/2
+   % Flip the normal vector if it is pointing away from the sensor.
+   angle = atan2d(norm(cross(p1,p2)),p1*p2');
+   %display(angle)
+   if angle > 90.0
        u_lichen(k) = -u_lichen(k);
        v_lichen(k) = -v_lichen(k);
        w_lichen(k) = -w_lichen(k);
@@ -230,12 +232,17 @@ normals_lichen = [u_lichen v_lichen w_lichen];
 
 disp("3. lichen layer creation:")
 
+%quiver3(x_lichen.*100,y_lichen.*100,z_lichen.*100,u_lichen,v_lichen,w_lichen,5,'b');
+
+quiver3(x.*100,y.*100,z.*100,u,v,w,5,'b');
+
+
 toc()
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 set(0,'DefaultFigureVisible','off');
-nn_var = 4;
+nn_var = [5, 10, 15, 20, 25, 30, 35, 40];
 tic()
 
 % indices_counter = zeros(length(x),1);
@@ -250,7 +257,7 @@ tic()
 
 %nn_var = 4;
 tic()
-indices_counter = zeros(length(inlierIndices),1);
+indices_counter = zeros(length(x),1);
 for nearest_neighbour = nn_var % try changing it around for a better distribution
     [angle_diff_lichen, indices_counter] = Algo2only_func_fixed_xy(nearest_neighbour, points_rock, normals_rock, points_lichen, normals_lichen, indices_counter);
     for i = 1:50
