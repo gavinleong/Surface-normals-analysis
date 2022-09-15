@@ -26,7 +26,7 @@ tic()
 ptCloud = (pcread('model_dense_mesh_for_paper_scaled_cleaned_poissondsksamp_79256_0,2_0,002228.ply')); % import the point cloud 
 
 rock_folder = char('rock_22_09_06_x1_ver8\');
-lichen_folder = char('lichen_22_09_06_x1_ver14\');
+lichen_folder = char('lichen_22_09_06_x1_ver15\');
 
 mkdir(fullfile('C:\Users\gavin\OneDrive - University College London\Surface normals paper\All_figures_13.5.21\from_matlab\', rock_folder));
 mkdir(fullfile('C:\Users\gavin\OneDrive - University College London\Surface normals paper\All_figures_13.5.21\from_matlab\', lichen_folder));
@@ -78,6 +78,21 @@ points_rock = points_rock_orient;
 x = points_rock(:,1);
 y = points_rock(:,2);
 z = points_rock(:,3);
+
+
+% calculate the root mean squared error of a flat fitting on the oriented
+% rock point cloud. If the RMSE is less than one standard deviation from
+% the mean lichen thickness, then the flat fitting is viable as the fitting
+% method, if it is larger than one SD below the lichen thickness, then we
+% use the surface fitting method.
+set(0,'DefaultFigureVisible','on');
+figure()
+mdl = fitlm(points_rock(:,1:2)*100,points_rock(:,3)*100);
+plot(mdl)
+figure()
+plot3(points_rock(:,1).*100,points_rock(:,2).*100, points_rock(:,3).*100,'k.', 'MarkerSize', 8);
+RMSE = mdl.RMSE;
+
 
 % work out the normals of the point cloud, 6 nearest neighbours
 normals_rock = pcnormals(points_rock_orient_cloud, 6);
@@ -255,6 +270,56 @@ tic()
 %     end 
 % end
 
+
+%%
+nn_var = 25;
+indices_counter = zeros(length(x),1);
+for nearest_neighbour = nn_var % try changing it around for a better distribution
+    [angle_diff_lichen, indices_counter] = Algo2only_func_fixed_xy(nearest_neighbour, points_rock, normals_rock, points_lichen, normals_lichen, indices_counter);
+    for i = 1:10
+        points_plot_rock4plotalgo2AD = angle_diff_lichen > i;
+
+        figure
+
+        rock_trial_index = find(points_plot_rock4plotalgo2AD);
+        rock_plot_avg = scatter3(points_rock(rock_trial_index,1).*100,...
+            points_rock(rock_trial_index,2).*100, ...
+            points_rock(rock_trial_index,3).*100,...
+            3,angle_diff_lichen(points_plot_rock4plotalgo2AD) ,'filled');
+        colormap(gca,"parula")
+        hold on
+
+        camroll(180)
+        ax = gca;
+        ax.XAxisLocation = 'top';
+        ax.YAxisLocation = 'right';
+        view(0,-90)
+        % direction = [0 1 0];
+        %plot([-49; -49], [34; 44], '-k',  [-49; -39], [44; 44], '-k', 'LineWidth', 2)
+        %text(-50,39, '10 cm', 'HorizontalAlignment','right')
+        %text(-44, 46, '10 cm', 'HorizontalAlignment','center')
+        axis tight
+        %ylim([-5 35])
+        %xlim([-15 10])
+        set(gca,'xtick',[],'ytick',[])
+        set(gca,'XColor','none','YColor','none','TickDir','out')
+        
+        cb = colorbar;                                     % create and label the colorbar
+        cb.Label.String = 'angle difference between rock point and neighbouring lichens (degree)';
+
+        %plot_algo2_AD_noaxis(points_plot_rock4plotalgo2AD,points_rock);
+        
+        % export the lichen point cloud with selected points
+        %pcwrite(pointCloud([x(points_plot_rock4plotalgo2AD),y(points_plot_rock4plotalgo2AD),z(points_plot_rock4plotalgo2AD)]),append('C:\Users\gavin\OneDrive - University College London\Surface normals paper\All_figures_13.5.21\from_matlab\', lichen_folder, string(i), ".ply"));
+        % export the rock point cloud with selected points
+        %pcwrite(pointCloud([x_lichen,y_lichen,z_lichen]),lichen_write)
+
+        print('-dtiff','-r600','C:\Users\gavin\OneDrive - University College London\Surface normals paper\All_figures_13.5.21\from_matlab\' + string(lichen_folder) + sprintf("%d",i) + '_a_' + sprintf("%d",nearest_neighbour) + '_nn_lichen.tif')
+    end 
+end
+
+
+%%
 %nn_var = 4;
 tic()
 indices_counter = zeros(length(x),1);
